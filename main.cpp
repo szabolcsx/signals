@@ -1,6 +1,7 @@
 #include "signal.h"
 
 #include <iostream>
+#include <cstdlib>
 
 void func(int x)
 {
@@ -89,5 +90,6 @@ int main()
   signal0();
   signal1(1);
   signal2(1, 2);
-  return 0;
+  
+  return EXIT_SUCCESS;
 }
