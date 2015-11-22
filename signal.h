@@ -5,6 +5,10 @@
 
 namespace szabi
 {
+  // When a slot is overloaded an ugly cast should be used
+  // static_cast<void(T::*)(<parameters>)>(&T::<slot>);
+  // This helper simplifies this a bit
+  // overload<parameters>::of(&T::slot);
   template <typename... Args>
   struct overload
   {
@@ -15,6 +19,7 @@ namespace szabi
     }
   };
 
+  // This class manages a connection between a signal and slot
   class connection
   {
   public:
@@ -28,12 +33,14 @@ namespace szabi
     }
 
   private:
+    // This will contain a lambda function which will remove the slot from the signal's vector
     std::function<void()> disconnector;
   };
 
+  // This class is used to disconnect all slots when the object is destroyed
   class auto_disconnect
   {
-
+    // A signal has access to add_connection function
     template<typename... Args> friend class signal;
   public:
     virtual ~auto_disconnect()
@@ -65,6 +72,7 @@ namespace szabi
     using container_type = std::vector<slot_type>;
     using iterator_type = typename container_type::iterator;
 
+
     template <typename S>
     connection connect(S&& slot)
     {
@@ -88,6 +96,7 @@ namespace szabi
       static_assert(std::is_base_of<auto_disconnect, T>::value, "T must inherit auto_disconnect");
       this->slots.emplace_back([&](Args... args)
       {
+        // Using a lambda function to call a slot which is a member function
         (static_cast<T*>(instance)->*slot)(std::forward<Args>(args)...);
       });
 
@@ -109,23 +118,7 @@ namespace szabi
     connection connect(S&& slot, T& instance)
     {
       static_assert(std::is_base_of<auto_disconnect, T>::value, "T must inherit auto_disconnect");
-      this->slots.emplace_back([&](Args... args)
-      {
-        (static_cast<T*>(std::addressof(instance))->*slot)(std::forward<Args>(args)...);
-      });
-
-      connection conn =
-      {
-        [&]()
-        {
-          iterator_type it = std::prev(this->slots.end());
-          this->slots.erase(it);
-        }
-      };
-
-      instance.add_connection(conn);
-
-      return conn;
+      return this->connect(slot, std::addressof(instance));
     }
 
     void operator()(Args const&... args)
