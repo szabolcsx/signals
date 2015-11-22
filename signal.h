@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SIGNAL_H__
+#define SIGNAL_H__
 
 #include <functional>
 #include <vector>
@@ -135,3 +136,5 @@ namespace szabi
     container_type slots;
   };
 }
+
+#endif /* SIGNAL_H__ */
