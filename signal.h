@@ -3,6 +3,8 @@
 
 #include <functional>
 #include <vector>
+#include <mutex>
+#include <memory>
 
 namespace szabi
 {
@@ -20,47 +22,99 @@ namespace szabi
     }
   };
 
+  namespace
+  {
+    class slot_base
+    {
+    public:
+      virtual void disconnect() = 0;
+    };
+
+    template <typename... Args>
+    class slot_impl : public slot_base
+    {
+    public:
+      using slot_type = std::function<void(Args...)>;
+      using disconnector_type = std::function<void()>;
+
+      slot_impl(slot_type&& slot, disconnector_type&& disconnector) :
+        slot(std::move(slot)),
+        disconnector(std::move(disconnector))
+      {}
+
+      void disconnect()
+      {
+        this->disconnector();
+      }
+
+      void operator()(Args... args)
+      {
+        this->slot(std::forward<Args>(args)...);
+      }
+
+      private:
+        slot_type slot;
+        disconnector_type disconnector;
+    };
+  }
+
   // This class manages a connection between a signal and slot
   class connection
   {
   public:
-    connection(std::function<void()>&& disconnector) : disconnector(std::move(disconnector)) {}
+    connection(const std::weak_ptr<slot_base>& slot) : slot(slot) {}
 
     ~connection() {}
 
     void disconnect() const
     {
-      this->disconnector();
-    }
-
-  private:
-    // This will contain a lambda function which will remove the slot from the signal's vector
-    std::function<void()> disconnector;
-  };
-
-  // This class is used to disconnect all slots when the object is destroyed
-  class auto_disconnect
-  {
-    // A signal has access to add_connection function
-    template<typename... Args> friend class signal;
-  public:
-    virtual ~auto_disconnect()
-    {
-      for(const auto& conn : this->connections)
+      if(auto temp = this->slot.lock())
       {
-        conn.disconnect();
+        temp->disconnect();
       }
     }
 
-  protected:
-    void add_connection(const connection& conn)
+    bool connected() const
     {
-      this->connections.push_back(conn);
+      return !this->slot.expired();
     }
 
   private:
-    std::vector<connection> connections;
+    std::weak_ptr<slot_base> slot;
   };
+
+  template <typename... Args>
+  class signal;
+
+  namespace signals
+  {
+    // This class is used to disconnect all slots when the object is destroyed
+    class auto_disconnect
+    {
+      // A signal has access to add_connection function
+      template <typename... Args> friend class szabi::signal;
+    public:
+      virtual ~auto_disconnect()
+      {
+        std::lock_guard<std::mutex> lock(this->mutex);
+        for(const auto& conn : this->connections)
+        {
+          conn.disconnect();
+        }
+      }
+
+    protected:
+      void add_connection(const connection& conn)
+      {
+        std::lock_guard<std::mutex> lock(this->mutex);
+        this->connections.push_back(conn);
+      }
+
+    private:
+      std::vector<connection> connections;
+      mutable std::mutex mutex;
+    };
+  }
 
   template <typename... Args>
   class signal
@@ -69,46 +123,26 @@ namespace szabi
     signal() {}
     virtual ~signal() {}
 
-    using slot_type = std::function<void(Args...)>;
-    using container_type = std::vector<slot_type>;
-    using iterator_type = typename container_type::iterator;
-
+    using slot_type = slot_impl<Args...>;
+    using slot_container_type = std::vector<std::shared_ptr<slot_type>>;
+    using slot_iterator_type = typename slot_container_type::iterator;
 
     template <typename S>
     connection connect(S&& slot)
     {
-      this->slots.push_back(std::forward<S>(slot));
-
-      connection conn =
-      {
-        [&]()
-        {
-          iterator_type it = std::prev(this->slots.end());
-          this->slots.erase(it);
-        }
-      };
-
-      return conn;
+      return this->connect_impl(slot);
     }
 
     template <typename S, typename T>
     connection connect(S&& slot, T* instance)
     {
-      static_assert(std::is_base_of<auto_disconnect, T>::value, "T must inherit auto_disconnect");
-      this->slots.emplace_back([&](Args... args)
-      {
-        // Using a lambda function to call a slot which is a member function
-        (static_cast<T*>(instance)->*slot)(std::forward<Args>(args)...);
-      });
-
-      connection conn =
-      {
-        [&]()
+      static_assert(std::is_base_of<signals::auto_disconnect, T>::value, "T must inherit auto_disconnect");
+      connection conn = this->connect_impl(
+        [&](Args... args)
         {
-          iterator_type it = std::prev(this->slots.end());
-          this->slots.erase(it);
-        }
-      };
+          // Using a lambda function to call a slot which is a member function
+          (static_cast<T*>(instance)->*slot)(std::forward<Args>(args)...);
+        });
 
       instance->add_connection(conn);
 
@@ -118,22 +152,38 @@ namespace szabi
     template <typename S, typename T>
     connection connect(S&& slot, T& instance)
     {
-      static_assert(std::is_base_of<auto_disconnect, T>::value, "T must inherit auto_disconnect");
       return this->connect(slot, std::addressof(instance));
     }
 
     void operator()(Args const&... args)
     {
+      std::lock_guard<std::mutex> lock(this->mutex);
       for(auto const& slot : this->slots)
       {
         if(slot)
         {
-          slot(args...);
+          (*slot)(args...);
         }
       }
     }
   private:
-    container_type slots;
+    slot_container_type slots;
+    mutable std::mutex mutex;
+
+    template<typename S>
+    connection connect_impl(S&& slot)
+    {
+      std::lock_guard<std::mutex> lock(this->mutex);
+      this->slots.push_back(std::shared_ptr<slot_type>(new slot_type(
+        std::forward<S>(slot), [&]()
+        {
+          std::lock_guard<std::mutex> lock(this->mutex);
+          slot_iterator_type it = std::prev(this->slots.end());
+          this->slots.erase(it);
+        })));
+
+      return { this->slots.back() };
+    }
   };
 }
 

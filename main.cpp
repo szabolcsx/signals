@@ -8,7 +8,7 @@ void func(int x)
   std::cout << "void func(" << x << ")" << std::endl;
 }
 
-class foo : public szabi::auto_disconnect
+class foo : public szabi::signals::auto_disconnect
 {
 public:
   foo() {}
@@ -40,7 +40,7 @@ public:
   }
 };
 
-class bad : public szabi::auto_disconnect
+class bad : public szabi::signals::auto_disconnect
 {
 public:
   bad()
@@ -57,6 +57,11 @@ public:
     std::cout << std::endl << "void bad::func()" << std::endl << std::endl;
   }
 };
+
+void should_not_fire()
+{
+  std::cout << "void should_not_fire()" << std::endl;
+}
 
 int main()
 {
@@ -79,17 +84,25 @@ int main()
   signal1.connect(szabi::overload<int>::of(&foo::func), f);
   signal2.connect(szabi::overload<int, int>::of(&foo::func), f);
 
-  signal1.connect(&foo::func1, f);
-  signal2.connect(&foo::func2, f);
+  signal1.connect(&foo::func1, &f);
+  signal2.connect(&foo::func2, &f);
 
   {
     bad b;
-    szabi::connection conn = signal1.connect(&bad::func, b);
+    auto conn = signal0.connect(&should_not_fire);
+    conn.disconnect();
+
+    if(!conn.connected())
+    {
+      std::cout << "disconnected" << std::endl;
+    }
+
+    signal1.connect(&bad::func, b);
   }
 
   signal0();
   signal1(1);
   signal2(1, 2);
-  
+
   return EXIT_SUCCESS;
 }
