@@ -203,9 +203,9 @@ namespace szabi
 		}
 
 		/**
-		Overloaded operator() used to call the slots
+		Calling the slots
 		*/
-		void operator()(Args const&... args)
+		void emit(Args const&... args)
 		{
 			std::lock_guard<std::mutex> lock(this->mutex);
 			for (auto const& slot : this->slots)
@@ -216,6 +216,14 @@ namespace szabi
 					(*slot)(args...);
 				}
 			}
+		}
+
+		/**
+		Overloaded operator() used to call the slots
+		*/
+		void operator()(Args const&... args)
+		{
+			this->emit(args);
 		}
 	private:
 		slot_container_type slots;

@@ -100,9 +100,9 @@ int main()
 		signal1.connect(&bad::func, b);
 	}
 
-	signal0();
-	signal1(1);
-	signal2(1, 2);
+	signal0.emit();
+	signal1.emit(1);
+	signal2.emit(1, 2);
 
 	return EXIT_SUCCESS;
 }
