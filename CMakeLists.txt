@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 project(signal)
 
-add_executable(signal main.cpp)
+set(SOURCE_FILES main.cpp)
+
+add_executable(signal ${SOURCE_FILES})
 
 target_compile_features(signal PUBLIC cxx_auto_type)
 target_compile_features(signal PUBLIC cxx_constexpr)
