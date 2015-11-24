@@ -61,9 +61,9 @@ namespace szabi
 		/**
 		The signal was emited, calling the slot
 		*/
-		void operator()(Args const&... args)
+		void emit(Args&&... args)
 		{
-			this->slot(args...);
+			this->slot(std::forward<Args>(args)...);
 		}
 
 	private:
@@ -178,10 +178,10 @@ namespace szabi
 		{
 			static_assert(std::is_base_of<signals::auto_disconnect, T>::value, "T must inherit auto_disconnect");
 			connection conn = this->connect_impl(
-				[slot, &instance](Args... args)
+				[&](Args... args)
 				{
 					// Using a lambda function to call a slot which is a member function
-					(static_cast<T*>(instance)->*slot)(std::forward<Args>(args)...);
+					(instance->*slot)(std::forward<Args>(args)...);
 				});
 
 			instance->add_connection(conn);
@@ -201,7 +201,7 @@ namespace szabi
 		/**
 		Calling the slots
 		*/
-		void emit(Args const&... args)
+		void emit(Args&&... args)
 		{
 			std::lock_guard<std::mutex> lock(this->mutex);
 			for (auto const& slot : this->slots)
@@ -209,18 +209,11 @@ namespace szabi
 				if (slot)
 				{
 					// Dereferencing the pointer
-					(*slot)(args...);
+					slot->emit(std::forward<Args>(args)...);
 				}
 			}
 		}
 
-		/**
-		Overloaded operator() used to call the slots
-		*/
-		void operator()(Args const&... args)
-		{
-			this->emit(args...);
-		}
 	private:
 		slot_container_type slots;
 		mutable std::mutex mutex;
