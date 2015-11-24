@@ -8,8 +8,8 @@
 
 namespace szabi
 {
-	
-	/** 
+
+	/**
 	Helper struct used when dealing with overloaded slots
 	*/
 	template <typename... Args>
@@ -27,53 +27,50 @@ namespace szabi
 		}
 	};
 
-	namespace
+	/**
+	Base class for slot_impl, also used to store slots in connection class
+	*/
+	class slot_base
 	{
-		/**
-		Base class for slot_impl, also used to store slots in connection class
+	public:
+		/*
+		 This is required for connection class which only has to disconnect slots
 		*/
-		class slot_base
+		virtual void disconnect() = 0;
+	};
+
+	template <typename... Args>
+	class slot_impl : public slot_base
+	{
+	public:
+		using slot_type = std::function<void(Args...)>;
+		using disconnector_type = std::function<void()>;
+
+		slot_impl(slot_type&& slot, disconnector_type&& disconnector) :
+			slot(std::move(slot)),
+			disconnector(std::move(disconnector))
+		{}
+
+		/**
+		Calling this method will disconnect the underlying slot
+		*/
+		void disconnect()
 		{
-		public:
-			/*
-			 This is required for connection class which only has to disconnect slots
-			*/
-			virtual void disconnect() = 0;
-		};
+			this->disconnector();
+		}
 
-		template <typename... Args>
-		class slot_impl : public slot_base
+		/**
+		The signal was emited, calling the slot
+		*/
+		void operator()(Args const&... args)
 		{
-		public:
-			using slot_type = std::function<void(Args...)>;
-			using disconnector_type = std::function<void()>;
+			this->slot(args...);
+		}
 
-			slot_impl(slot_type&& slot, disconnector_type&& disconnector) :
-				slot(std::move(slot)),
-				disconnector(std::move(disconnector))
-			{}
-
-			/**
-			Calling this method will disconnect the underlying slot
-			*/
-			void disconnect()
-			{
-				this->disconnector();
-			}
-
-			/**
-			The signal was emited, calling the slot
-			*/
-			void operator()(Args... args)
-			{
-				this->slot(std::forward<Args>(args)...);
-			}
-
-		private:
-			slot_type slot;
-			disconnector_type disconnector;
-		};
-	}
+	private:
+		slot_type slot;
+		disconnector_type disconnector;
+	};
 
 	// This class manages a connection between a signal and slot
 	class connection
@@ -182,7 +179,7 @@ namespace szabi
 		{
 			static_assert(std::is_base_of<signals::auto_disconnect, T>::value, "T must inherit auto_disconnect");
 			connection conn = this->connect_impl(
-				[&](Args... args)
+				[slot, &instance](Args... args)
 			{
 				// Using a lambda function to call a slot which is a member function
 				(static_cast<T*>(instance)->*slot)(std::forward<Args>(args)...);
@@ -223,7 +220,7 @@ namespace szabi
 		*/
 		void operator()(Args const&... args)
 		{
-			this->emit(args);
+			this->emit(args...);
 		}
 	private:
 		slot_container_type slots;
