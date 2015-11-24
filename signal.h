@@ -167,7 +167,18 @@ namespace szabi
 		template <typename S>
 		connection connect(S&& slot)
 		{
-			return this->connect_impl(slot);
+			std::lock_guard<std::mutex> lock(this->mutex);
+			this->slots.push_back(std::shared_ptr<slot_type>(new slot_type(
+					std::forward<S>(slot), [&]()
+			{
+				// This lambda function is the disconnector which is called on sock_impl::disconnect()
+				std::lock_guard<std::mutex> lock(this->mutex);
+				slot_iterator_type it = std::prev(this->slots.end());
+				this->slots.erase(it);
+			})));
+
+			// Constructing a new connection from last slot
+			return{ this->slots.back() };
 		}
 
 		/**
@@ -177,7 +188,7 @@ namespace szabi
 		connection connect(S&& slot, T* instance)
 		{
 			static_assert(std::is_base_of<signals::auto_disconnect, T>::value, "T must inherit auto_disconnect");
-			connection conn = this->connect_impl(
+			connection conn = this->connect(
 				[&](Args... args)
 				{
 					// Using a lambda function to call a slot which is a member function
@@ -217,26 +228,6 @@ namespace szabi
 	private:
 		slot_container_type slots;
 		mutable std::mutex mutex;
-
-		/**
-		Implementation of the connect function
-		*/
-		template<typename S>
-		connection connect_impl(S&& slot)
-		{
-			std::lock_guard<std::mutex> lock(this->mutex);
-			this->slots.push_back(std::shared_ptr<slot_type>(new slot_type(
-				std::forward<S>(slot), [&]()
-				{
-					// This lambda function is the disconnector which is called on sock_impl::disconnect()
-					std::lock_guard<std::mutex> lock(this->mutex);
-					slot_iterator_type it = std::prev(this->slots.end());
-					this->slots.erase(it);
-				})));
-
-			// Constructing a new connection from last slot
-			return{ this->slots.back() };
-		}
 	};
 }
 
