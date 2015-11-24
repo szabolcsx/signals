@@ -8,7 +8,6 @@
 
 namespace szabi
 {
-
 	/**
 	Helper struct used when dealing with overloaded slots
 	*/
