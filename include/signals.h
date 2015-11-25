@@ -21,6 +21,21 @@ namespace szabi {
         static constexpr auto of(R(F::*ptr)(Args...)) -> decltype(ptr) {
             return ptr;
         }
+
+        template<typename F, typename R>
+        static constexpr auto of(R(F::*ptr)(Args const&...)) -> decltype(ptr) {
+            return ptr;
+        }
+
+        template<typename R>
+        static constexpr auto of(R(*ptr)(Args...)) -> decltype(ptr) {
+            return ptr;
+        }
+
+        template<typename R>
+        static constexpr auto of(R(*ptr)(Args const&...)) -> decltype(ptr) {
+            return ptr;
+        }
     };
 
     /**
