@@ -1,5 +1,5 @@
-#ifndef SIGNAL_H__
-#define SIGNAL_H__
+#ifndef SIGNAL_H_INCLUDED
+#define SIGNAL_H_INCLUDED
 
 #include <functional>
 #include <vector>
@@ -63,36 +63,6 @@ namespace szabi {
         disconnector_type disconnector;
     };
 
-    // This class manages a connection between a signal and slot
-    class connection {
-    public:
-        connection(const std::weak_ptr<slot_base> &slot) : slot(slot) { }
-
-        ~connection() { }
-
-        void disconnect() const {
-            /*
-            Since the slot is a weak pointer to the main slot_impl object, when it's deleted this->slot.lock() will return false
-            */
-            if (auto temp = this->slot.lock()) {
-                temp->disconnect();
-            }
-        }
-
-        /**
-        Returns true if the slot is connected
-        */
-        bool connected() const {
-            /*
-            If the weak pointer is not expired then the slot is still connected
-            */
-            return !this->slot.expired();
-        }
-
-    private:
-        std::weak_ptr<slot_base> slot;
-    };
-
     /*
     Forward declaration of signal used by signals::auto_disconnect
     */
@@ -100,6 +70,36 @@ namespace szabi {
     class signal;
 
     namespace signals {
+        // This class manages a connection between a signal and slot
+        class connection {
+        public:
+            connection(const std::weak_ptr<slot_base> &slot) : slot(slot) { }
+
+            ~connection() { }
+
+            void disconnect() const {
+                /*
+                Since the slot is a weak pointer to the main slot_impl object, when it's deleted this->slot.lock() will return false
+                */
+                if (auto temp = this->slot.lock()) {
+                    temp->disconnect();
+                }
+            }
+
+            /**
+            Returns true if the slot is connected
+            */
+            bool connected() const {
+                /*
+                If the weak pointer is not expired then the slot is still connected
+                */
+                return !this->slot.expired();
+            }
+
+        private:
+            std::weak_ptr<slot_base> slot;
+        };
+
         /**
         This class is used to disconnect all slots when the object is destroyed.
         All classes which have slots must inherit from this
@@ -150,7 +150,7 @@ namespace szabi {
         Used for lambdas, global functions
         */
         template<typename S>
-        connection connect(S &&slot) {
+        signals::connection connect(S &&slot) {
             std::lock_guard<std::mutex> lock(this->mutex);
             this->slots.push_back(
                     std::shared_ptr<slot_type>(
@@ -170,9 +170,9 @@ namespace szabi {
         Used for slots which are member functions
         */
         template<typename S, typename T>
-        connection connect(S &&slot, T *instance) {
+        signals::connection connect(S &&slot, T *instance) {
             static_assert(std::is_base_of<signals::auto_disconnect, T>::value, "T must inherit auto_disconnect");
-            connection conn = this->connect(
+            auto conn = this->connect(
                     [&](Args... args) {
                         // Using a lambda function to call a slot which is a member function
                         (instance->*slot)(std::forward<Args>(args)...);
@@ -187,7 +187,7 @@ namespace szabi {
         Used for slots which are member functions
         */
         template<typename S, typename T>
-        connection connect(S &&slot, T &instance) {
+        signals::connection connect(S &&slot, T &instance) {
             return this->connect(slot, std::addressof(instance));
         }
 
@@ -210,4 +210,4 @@ namespace szabi {
     };
 }
 
-#endif /* SIGNAL_H__ */
+#endif /* SIGNAL_H_INCLUDED */
