@@ -75,3 +75,35 @@ if(conn.connected()) {
   //...
 }
 ```
+
+When an object goes out of scope all of it's slots will be automatically disconnected thanks to szabi::auto_disconnect:
+```cpp
+#include <iostream>
+
+class should_not_seen
+{
+public:
+  void slot() {
+    std::cout << "This should not be seen" << std::endl;
+  }
+}
+
+int main() {
+  szabi::signal<> test_signal;
+
+  std::cout << "Execution started" << std::endl;
+
+  {
+    should_not_seen instance;
+    test_signal.connect(&should_not_seen::slot, instance);
+
+    // The *instance* goes out of scope and the slot will be disconnected before emitting the signal
+  }
+
+  test_signal.emit();
+
+  std::cout << "Execution done" << std::endl;
+
+  return 0;
+}
+```
