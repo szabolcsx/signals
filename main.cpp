@@ -77,14 +77,14 @@ int main() {
 
     {
         bad b;
-        auto conn = signal0.connect(&should_not_fire);
-        conn.disconnect();
+        auto conn0 = signal0.connect(&should_not_fire);
+        conn0.disconnect();
 
-        if (!conn.connected()) {
+        if (!conn0.connected()) {
             std::cout << "disconnected" << std::endl;
         }
 
-        signal1.connect(&bad::func, b);
+        szabi::signals::connection conn1 = signal1.connect(&bad::func, b);
     }
 
     signal0.emit();
