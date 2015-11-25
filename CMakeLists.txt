@@ -3,7 +3,9 @@ project (signal)
 
 set (CMAKE_CXX_STANDARD 11)
 
+include_directories(include)
+
 add_executable(signal
     main.cpp
-    signal.h
+    include/signals.h
 )

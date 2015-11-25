@@ -78,9 +78,10 @@ if(conn.connected()) {
 
 When an object goes out of scope all of it's slots will be automatically disconnected thanks to szabi::auto_disconnect:
 ```cpp
+#include <signals.h>
 #include <iostream>
 
-class should_not_seen
+class should_not_seen : public szabi::signals::auto_disconnect
 {
 public:
   void slot() {
