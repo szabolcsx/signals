@@ -15,6 +15,8 @@ class foo : public szabi::auto_disconnect
 {
   public:
   void slot_int_changed(int);
+  void overloaded_slot(int);
+  void overloaded_slot(int, int);
 };
 
 // Connect global slot
@@ -30,6 +32,32 @@ signal_int_changed.connect([](int)
 foo f;
 signal_int_changed.connect(&foo::slot_int_changed, f);
 ```
+
+Connecting overloaded slots:
+```cpp
+szabi::signal<int> signal_1;
+szabi::signal<int, int> signal_2;
+
+foo f;
+
+signal_1.connect(szabi::overload<int>::of(&foo::overloaded_signal), f);
+signal_2.connect(szabi::overload<int, int>::of(&foo::overloaded_signal), f);
+```
+When connecting overloaded slots the compiler can't deduce the parameter list so you need to be explicit on that by using *szabi::overload*
+```cpp
+// Use with global slots
+szabi::overload</* parameter list */>::of(&slot);
+
+// Use with slots which are member functions
+szabi::overload</* parameter list */>::of(&class_name::slot);
+```
+
+Using *szabi::overload* is equal to the following code:
+```cpp
+// szabi::overload</* parameter list */>::of(&class_name::slot);
+static_cast<void(class_name::*)(/* parameter list */)>(&class_name::slot);
+```
+
 Emitting a signal calls all of the connected slots:
 ```cpp
 signal_int_changed.emit(1);
