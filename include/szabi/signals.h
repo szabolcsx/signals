@@ -69,8 +69,8 @@ namespace szabi {
         /**
         The signal was emited, calling the slot
         */
-        void emit(Args &&... args) {
-            this->slot(std::forward<Args>(args)...);
+        void emit(Args... args) {
+            this->slot(args...);
         }
 
     private:
@@ -209,12 +209,13 @@ namespace szabi {
         /**
         Calling the slots
         */
-        void emit(Args &&... args) {
+        void emit(Args... args) {
             std::lock_guard<std::mutex> lock(this->mutex);
             for (auto const &slot : this->slots) {
                 if (slot) {
                     // Dereferencing the pointer
-                    slot->emit(std::forward<Args>(args)...);
+                    //slot->emit(std::forward<Args>(args)...);
+                    slot->emit(args...);
                 }
             }
         }
