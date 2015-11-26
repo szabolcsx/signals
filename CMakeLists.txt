@@ -7,5 +7,7 @@ include_directories(include)
 
 add_executable(signal_test
     test.cpp
-    include/signals.h
+    include/szabi/signals.h
 )
+
+install(FILES include/szabi/signals.h DESTINATION include/szabi)
