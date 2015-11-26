@@ -1,4 +1,4 @@
-#include <signals.h>
+#include <szabi/signals.h>
 
 #include <iostream>
 #include <string>
@@ -67,8 +67,8 @@ public:
 
 int main() {
     szabi::signal<> signal0;
-    szabi::signal<const std::string&> signal1;
-    szabi::signal<const std::string&, const std::string&> signal2;
+    szabi::signal<std::string> signal1;
+    szabi::signal<std::string, std::string> signal2;
     szabi::signal<std::string&> signal_ref;
 
     signal_ref.connect(&slot_with_ref);
@@ -103,9 +103,12 @@ int main() {
         szabi::signals::connection conn1 = signal0.connect(&this_should_not_be_seen::slot_should_be_disconnected, should_not_seen);
     }
 
+    std::string message1 = "Message one";
+    std::string message2 = "Message two";
+
     signal0.emit();
     signal1.emit("Message one");
-    signal2.emit("Message one", "Message two");
+    signal2.emit(message1, message2);
 
     std::string message = "The slot wasn't executed";
     signal_ref.emit(message);
